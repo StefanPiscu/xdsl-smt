@@ -11,6 +11,7 @@ from xdsl.dialects.arith import Arith
 from xdsl.dialects.comb import Comb
 from xdsl.dialects.test import Test
 from xdsl.dialects.memref import MemRef
+from xdsl.dialects.riscv import RISCV
 from xdsl_smt.dialects.smt_array_dialect import SMTArray
 from xdsl_smt.dialects.smt_floatingpoint_dialect import SMTFloatingPointDialect
 from xdsl_smt.dialects.smt_int_dialect import SMTIntDialect
@@ -96,6 +97,7 @@ class OptMain(xDSLOptMain):
         self.ctx.register_dialect(Comb.name, lambda: Comb)
         self.ctx.register_dialect(HW.name, lambda: HW)
         self.ctx.register_dialect(LLVM.name, lambda: LLVM)
+        self.ctx.register_dialect(RISCV.name, lambda: RISCV)
         self.ctx.register_dialect(Test.name, lambda: Test)
         self.ctx.register_dialect(MemRef.name, lambda: MemRef)
         self.ctx.register_dialect(UBDialect.name, lambda: UBDialect)
