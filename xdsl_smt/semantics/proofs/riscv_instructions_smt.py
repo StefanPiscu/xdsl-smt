@@ -25,11 +25,23 @@ def trivial_rdrsrs_int_op_smt(
     ) -> tuple[Block, Sequence[SSAValue]]:
         mock_op = riscv_op_type.create(result_types=[IntRegisterType.unallocated()])
         block = Block(ops=[mock_op], arg_types=(IntRegisterType.unallocated(), IntRegisterType.unallocated()))
-
         rewriter = PatternRewriter(mock_op)
         lower_block_args(block)
         a0, a1 = block.args
         new_res, _ = TrivialRdRsRsIntSemantics(riscv_op_type, smt_op_type).get_semantics([a0, a1], [IntRegisterType.unallocated()], {}, None, rewriter)
+        rewriter.replace_matched_op([], new_res)
+        return block, new_res
+
+def rdrsrs_int_op_smt(
+        riscv_op_type : type[Operation], 
+        semantics: Callable[[SSAValue, SSAValue, PatternRewriter], Sequence[SSAValue]]
+    ) -> tuple[Block, Sequence[SSAValue]]:
+        mock_op = riscv_op_type.create(result_types=[IntRegisterType.unallocated()])
+        block = Block(ops=[mock_op], arg_types=(IntRegisterType.unallocated(), IntRegisterType.unallocated()))
+        rewriter = PatternRewriter(mock_op)
+        lower_block_args(block)
+        rhs, lhs = block.args
+        new_res, _ = RdRsRsIntSemantics(semantics).get_semantics([lhs, rhs], [IntRegisterType.unallocated()], {}, None, rewriter)
         rewriter.replace_matched_op([], new_res)
         return block, new_res
 

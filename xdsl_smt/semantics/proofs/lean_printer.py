@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from xdsl.ir import Operation, SSAValue, Block, TypeAttribute
 
 from xdsl_smt.dialects import smt_bitvector_dialect as smt_bv
-from xdsl.dialects.smt import BitVectorType
+from xdsl.dialects.smt import BitVectorType, BoolType
 from xdsl_smt.semantics.riscv_semantics import *
 
 class IdDict:
@@ -19,6 +19,8 @@ class IdDict:
 def get_type(type : TypeAttribute) -> str:
     if isinstance(type, BitVectorType):
         return f"BitVec {type.width.data}"
+    elif isinstance(type, BoolType):
+        return "Bool"
     else: 
         raise ValueError(f"Cannot convert {type} to a lean type")
 
@@ -26,6 +28,17 @@ class LeanPrintable(ABC):
       
     @abstractmethod
     def print(self, op : Operation, ids : IdDict, indent=0) : pass
+
+class ConstantOp(LeanPrintable):
+
+    def print(self, op : Operation, ids : IdDict, indent=0) :
+        assert isinstance(op, smt_bv.ConstantOp)
+        print("{}let a{} : {} := {} ;".format(
+            "  "*indent,
+            ids.get_id(op.res),
+            get_type(op.result_types[0]),
+            op.value.value.data 
+        ))
 
 @dataclass
 class BinaryOp(LeanPrintable):
@@ -43,6 +56,25 @@ class BinaryOp(LeanPrintable):
             self.lean_function_name,
             ids.get_id(op1),
             ids.get_id(op2), 
+        ))
+
+@dataclass
+class TernaryOp(LeanPrintable):
+    smt_op_type: type[Operation]
+    lean_function_name: str
+
+    def print(self, op : Operation, ids : IdDict, indent=0):
+        assert type(op) == self.smt_op_type
+        rtype = op.result_types[0]
+        res, op1, op2, op3 = op.results[0], op.operands[0], op.operands[1], op.operands[2]
+        print("{}let a{} : {} := ({} a{} a{} a{}) ;".format(
+            "  "*indent,
+            ids.get_id(res),
+            get_type(rtype),
+            self.lean_function_name,
+            ids.get_id(op1),
+            ids.get_id(op2),
+            ids.get_id(op3), 
         ))
 
 @dataclass
@@ -68,6 +100,9 @@ op_printers = {
     smt_bv.XorOp : BinaryOp(smt_bv.XorOp, "BitVec.xor"),
     smt_bv.SignExtendOp : ExtendOp("sign"),
     smt_bv.ZeroExtendOp : ExtendOp("zero"),
+    smt_bv.SltOp : BinaryOp(smt_bv.SltOp, "BitVec.slt"),
+    smt.IteOp : TernaryOp(smt.IteOp, "cond"),
+    smt_bv.ConstantOp : ConstantOp()
 }
 
 def print_lean_theorem(name : str, block: Block, results: Sequence[SSAValue]) -> None:
@@ -83,7 +118,7 @@ def print_lean_theorem(name : str, block: Block, results: Sequence[SSAValue]) ->
     print(f"def _{name} {typed_args}: {get_type(results[0].type)} :=")
     for op in block.walk():
         if type(op) not in op_printers:
-            raise ValueError(f"Cannot print {type.name} in lean")
+            raise ValueError(f"Cannot print {type(op)} in lean")
         op_printers[type(op)].print(op, ids, indent=1) 
     print(f"  a{ids.get_id(results[0])}")
     print(f"theorem {name}_eq {typed_args}: RV64.{name} {args}= _{name} {args}:= by")

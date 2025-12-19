@@ -55,3 +55,12 @@ def _xori (a0 : BitVec 12) (a1 : BitVec 64) : BitVec 64 :=
 theorem xori_eq (a0 : BitVec 12) (a1 : BitVec 64) : RV64.xori a0 a1 = _xori a0 a1 := by
   simp [RV64.xori, _xori]
   try bv_decide
+def _slt (a0 : BitVec 64) (a1 : BitVec 64) : BitVec 64 :=
+  let a2 : Bool := (BitVec.slt a1 a0) ;
+  let a3 : BitVec 64 := 0 ;
+  let a4 : BitVec 64 := 1 ;
+  let a5 : BitVec 64 := (cond a2 a4 a3) ;
+  a5
+theorem slt_eq (a0 : BitVec 64) (a1 : BitVec 64) : RV64.slt a0 a1 = _slt a0 a1 := by
+  simp [RV64.slt, _slt]
+  try bv_decide

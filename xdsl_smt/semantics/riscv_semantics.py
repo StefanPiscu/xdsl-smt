@@ -11,6 +11,7 @@ from xdsl_smt.semantics.semantics import (
 )
 
 from xdsl_smt.dialects import smt_bitvector_dialect as smt_bv
+from xdsl_smt.dialects import smt_dialect as smt
 from xdsl.dialects.riscv import IntRegisterType
 import xdsl.dialects.riscv as riscv
 
@@ -59,6 +60,34 @@ class TrivialRdRsRsIntSemantics(OperationSemantics):
         return ([new_op.results[0]], effect_state)
 
 @dataclass
+class RdRsRsIntSemantics(OperationSemantics):
+    semantics: Callable[[SSAValue, SSAValue, PatternRewriter], Sequence[SSAValue]]
+
+    def get_semantics(
+        self,
+        operands: Sequence[SSAValue],
+        results: Sequence[Attribute],
+        attributes: Mapping[str, Attribute | SSAValue],
+				effect_state: SSAValue | None,
+        rewriter: PatternRewriter,
+    ) -> tuple[Sequence[SSAValue], SSAValue | None]:
+        assert isinstance(results[0], IntRegisterType)
+        new_results = self.semantics(operands[0], operands[1], rewriter)
+        return (new_results, effect_state)
+
+def ofBool(val : SSAValue, rewriter : PatternRewriter) -> SSAValue:
+    zero = smt_bv.ConstantOp(0, 64)
+    one = smt_bv.ConstantOp(1, 64)
+    iteOp = smt.IteOp(val, one.res, zero.res) 
+    rewriter.insert_op_before_matched_op([zero, one, iteOp])
+    return iteOp.res
+
+def slt_semantics(rs1 : SSAValue, rs2 : SSAValue, rewriter : PatternRewriter) -> Sequence[SSAValue]: 
+    sltOp = smt_bv.SltOp(rs1, rs2)
+    rewriter.insert_op_before_matched_op([sltOp])
+    return [ofBool(sltOp.res, rewriter)]
+
+@dataclass
 class TrivialRdRsImmIntSemantics(OperationSemantics):
     riscv_op_type: type[Operation]
     smt_op_type: type[Operation]
@@ -95,4 +124,6 @@ riscv_semantics: dict[type[Operation], OperationSemantics] = {
     riscv.XoriOp : TrivialRdRsImmIntSemantics(riscv.XoriOp, smt_bv.XorOp),
     riscv.AndiOp : TrivialRdRsImmIntSemantics(riscv.AndiOp, smt_bv.AndOp),
     riscv.OriOp : TrivialRdRsImmIntSemantics(riscv.OriOp, smt_bv.OrOp),
+
+    riscv.SltOp: RdRsRsIntSemantics(slt_semantics),
 }

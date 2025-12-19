@@ -18,4 +18,5 @@ print_theorem("addi", trivial_rdrsimm_int_op_smt(riscv.AddiOp, smt_bv.AddOp, 12)
 print_theorem("andi", trivial_rdrsimm_int_op_smt(riscv.AndiOp, smt_bv.AndOp, 12))
 print_theorem("ori", trivial_rdrsimm_int_op_smt(riscv.OriOp, smt_bv.OrOp, 12))
 print_theorem("xori", trivial_rdrsimm_int_op_smt(riscv.XoriOp, smt_bv.XorOp, 12))
-	
+
+print_theorem("slt", rdrsrs_int_op_smt(riscv.SltOp, slt_semantics))
