@@ -20,6 +20,10 @@ zip-safe = false
 [tool.setuptools.package-data]
 xdsl_smt = ["py.typed"]
 
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["verify_semantics*"]
+
 [project.scripts]
 xdsl-smt = "xdsl_smt.cli.xdsl_smt:main"
 xdsl-tv = "xdsl_smt.cli.xdsl_tv:main"

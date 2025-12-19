@@ -19,7 +19,7 @@ def lower_block_args(block : Block) -> BlockArgument[Attribute] :
         arg.replace_by(new_arg)
         arg.block.erase_arg(arg)
 
-def rdrsrs_int_op_smt(
+def trivial_rdrsrs_int_op_smt(
         riscv_op_type : type[Operation], 
         smt_op_type: type[Operation],
     ) -> tuple[Block, Sequence[SSAValue]]:
@@ -33,7 +33,7 @@ def rdrsrs_int_op_smt(
         rewriter.replace_matched_op([], new_res)
         return block, new_res
 
-def rdrsimm_int_op_smt(
+def trivial_rdrsimm_int_op_smt(
         riscv_op_type : type[Operation], 
         smt_op_type: type[Operation],
         width

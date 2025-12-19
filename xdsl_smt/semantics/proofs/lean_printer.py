@@ -86,4 +86,6 @@ def print_lean_theorem(name : str, block: Block, results: Sequence[SSAValue]) ->
             raise ValueError(f"Cannot print {type.name} in lean")
         op_printers[type(op)].print(op, ids, indent=1) 
     print(f"  a{ids.get_id(results[0])}")
-    print(f"theorem {name}_eq {typed_args}: {name} {args}= _{name} {args}:= by bv_decide")
+    print(f"theorem {name}_eq {typed_args}: RV64.{name} {args}= _{name} {args}:= by")
+    print(f"  simp [RV64.{name}, _{name}]")
+    print("  try bv_decide")

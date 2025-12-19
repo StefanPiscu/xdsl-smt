@@ -1,0 +1,10 @@
+name = "riscv_equivalence"
+version = "0.1.0"
+defaultTargets = ["riscv_equivalence"]
+
+[[lean_lib]]
+name = "RiscvEquivalence"
+
+[[lean_exe]]
+name = "riscv_equivalence"
+root = "Main"

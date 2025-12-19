@@ -1,4 +1,4 @@
-from typing import Sequence, Mapping
+from typing import Sequence, Mapping, Callable
 from dataclasses import dataclass
 from xdsl.ir import Attribute, Operation, SSAValue
 from xdsl.utils.hints import isa
