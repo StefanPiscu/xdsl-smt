@@ -1,5 +1,6 @@
 from typing import Sequence
 from xdsl.dialects.builtin import FunctionType, IntegerType, i1
+from xdsl.dialects.riscv import IntRegisterType
 from xdsl.ir import SSAValue, Region, Block, Attribute
 from xdsl.rewriter import InsertPoint
 from xdsl.builder import Builder, ImplicitBuilder
@@ -165,8 +166,8 @@ def find_refinement_semantics(
     type_before: Attribute,
     type_after: Attribute,
 ) -> RefinementSemantics:
-    if isinstance(type_before, smt_bv.BitVectorType | smt.BoolType) and isinstance(
-        type_after, smt_bv.BitVectorType | smt.BoolType
+    if isinstance(type_before, smt_bv.BitVectorType | smt.BoolType | IntRegisterType) and isinstance(
+        type_after, smt_bv.BitVectorType | smt.BoolType | IntRegisterType
     ):
         return EqualityRefinementSemantics()
     if isinstance(type_before, IntegerType) and isinstance(type_after, IntegerType):

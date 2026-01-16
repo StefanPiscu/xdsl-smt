@@ -69,7 +69,7 @@ def load_vanilla_semantics():
         **memref_semantics,
         **transfer_semantics,
         **llvm_semantics,
-				**riscv_semantics,
+		**riscv_semantics,
     }
     SMTLowerer.rewrite_patterns = {
         **func_to_smt_patterns,
