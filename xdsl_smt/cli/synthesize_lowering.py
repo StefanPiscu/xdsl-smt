@@ -47,6 +47,11 @@ def register_all_arguments(arg_parser: argparse.ArgumentParser):
         help="Run some optimizations on the SMT query before passing it to the solver",
         action="store_true",
     )
+    arg_parser.add_argument(
+        "--synth-ops",
+        help="Use synthetic operations instead of synth.const",
+        action="store_true",
+    )
 
 
 def get_input_operations(
@@ -100,7 +105,8 @@ def try_synthesize_lowering_for_module(
             f"--dialect={args.output_dialect}",
             f"--configuration={args.output_configuration}",
         ]
-        + (["--opt"] if args.opt else []),
+        + (["--opt"] if args.opt else [])
+        + (["--synth-ops"] if args.synth_ops else []),
         capture_output=True,
         text=True,
     )
@@ -135,14 +141,14 @@ def main():
                 failed_synthesis.append(op)
                 print(f"Failed to synthesize lowering with {i} operations for:")
                 print(op)
-                print("\n\n")
+                print("\n\n", flush=True)
                 continue
 
             print("Successfully synthesized lowering for:")
             print(op)
             print("The synthesized lowering is:")
             print(synthesized)
-            print("\n\n")
+            print("\n\n", flush=True)
         print(f"{len(failed_synthesis)} remaining after size {i}.")
 
     print(len(failed_synthesis), "operations could not be lowered:")

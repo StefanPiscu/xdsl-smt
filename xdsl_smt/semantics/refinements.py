@@ -1,5 +1,6 @@
 from typing import Sequence
-from xdsl.dialects.builtin import FunctionType, IntegerType, i1
+from dataclasses import dataclass
+from xdsl.dialects.builtin import FunctionType, IntegerType, Signedness, i1
 from xdsl.dialects.riscv import IntRegisterType
 from xdsl.ir import SSAValue, Region, Block, Attribute
 from xdsl.rewriter import InsertPoint
@@ -28,6 +29,7 @@ from xdsl_smt.dialects.smt_dialect import (
 )
 from xdsl_smt.dialects.smt_utils_dialect import FirstOp, PairType, SecondOp, AnyPairType
 from xdsl_smt.semantics.semantics import RefinementSemantics
+from xdsl_smt.semantics.riscv_semantics import WORD_SIZE
 
 
 class EqualityRefinementSemantics(RefinementSemantics):
@@ -110,6 +112,33 @@ class BoolToIntPoisonRefinementSemantics(RefinementSemantics):
         refinement = builder.insert(smt.AndOp(eq_vals, not_after_poison)).result
         return refinement
 
+@dataclass
+class IntegerTypeToRegisterRefinementSemantics(RefinementSemantics):
+    width : int
+
+    def get_semantics(
+        self,
+        val_before: SSAValue,
+        val_after: SSAValue,
+        builder: Builder
+    ) -> SSAValue:
+        """
+        An register is a refinement of an integer type if the sign
+        extension of the integer is equal to the register's value, 
+        or the integer is poisoned
+        """ 
+        before_poison = builder.insert(SecondOp(val_before)).res
+        before_val = builder.insert(FirstOp(val_before)).res
+        after_val = val_after
+
+        #TODO: revisit refinements later, there may be better ones
+        if self.width < WORD_SIZE:
+            after_val = builder.insert(smt_bv.ExtractOp(val_after, self.width-1, 0)).res
+
+        not_before_poison = builder.insert(smt.NotOp(before_poison)).result
+        eq_vals = builder.insert(EqOp(before_val, after_val)).res
+        refinement = builder.insert(ImpliesOp(not_before_poison, eq_vals)).result
+        return refinement
 
 def integer_value_refinement(
     value: SSAValue, value_after: SSAValue, insert_point: InsertPoint
@@ -166,9 +195,11 @@ def find_refinement_semantics(
     type_before: Attribute,
     type_after: Attribute,
 ) -> RefinementSemantics:
-    if isinstance(type_before, smt_bv.BitVectorType | smt.BoolType | IntRegisterType) and isinstance(
-        type_after, smt_bv.BitVectorType | smt.BoolType | IntRegisterType
+    if isinstance(type_before, smt_bv.BitVectorType | smt.BoolType) and isinstance(
+        type_after, smt_bv.BitVectorType | smt.BoolType 
     ):
+        return EqualityRefinementSemantics()
+    if isinstance(type_before, IntRegisterType) and isinstance(type_after, IntRegisterType):
         return EqualityRefinementSemantics()
     if isinstance(type_before, IntegerType) and isinstance(type_after, IntegerType):
         return IntegerTypeRefinementSemantics()
@@ -176,6 +207,11 @@ def find_refinement_semantics(
         return IntToIntPoisonRefinementSemantics()
     if isinstance(type_before, BoolType) and type_after == i1:
         return BoolToIntPoisonRefinementSemantics()
+    if isinstance(type_before, IntegerType) and isinstance(type_after, IntRegisterType):
+        if(type_before == i1 or type_before.signedness.data == Signedness.UNSIGNED):
+            return IntegerTypeToRegisterRefinementSemantics(type_before.width.data)
+        else:
+            return IntegerTypeToRegisterRefinementSemantics(type_before.width.data)
     raise Exception(f"No refinement semantics for types {type_before}, {type_after}")
 
 

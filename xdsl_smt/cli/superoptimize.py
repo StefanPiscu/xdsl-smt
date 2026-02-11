@@ -79,6 +79,12 @@ def register_all_arguments(arg_parser: argparse.ArgumentParser):
         help="Optimize SMT queries before sending them to the solver",
         action="store_true",
     )
+    arg_parser.add_argument(
+        "--synth-ops",
+        dest="synth_ops",
+        help="Use synthetic operations instead of synth.const",
+        action="store_true",
+    )
 
 
 def main() -> None:
@@ -111,7 +117,8 @@ def main() -> None:
             "--mlir-print-op-generic",
             f"--configuration={args.configuration}",
             f"--use-input-ops={args.use_input_ops}",
-        ],
+        ] 
+        + (["--synth-ops"] if args.synth_ops else []), # type: ignore
         stdin=sp.PIPE,
         stdout=sp.PIPE,
     )
@@ -120,7 +127,6 @@ def main() -> None:
         while True:
             # Read one program from stdin
             rhs_program = read_program_from_enumerator(enumerator, ctx)
-
             # End of file
             if rhs_program is None:
                 break

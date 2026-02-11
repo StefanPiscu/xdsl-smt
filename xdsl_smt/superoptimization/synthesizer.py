@@ -4,6 +4,7 @@ program such that it is a refinement of an LHS program.
 """
 
 import z3  # type: ignore[reportMissingTypeStubs]
+from dataclasses import dataclass
 from typing import Sequence, Mapping, cast, Any
 from xdsl.context import Context
 from xdsl.ir import SSAValue, Attribute, OperationInvT
@@ -18,6 +19,7 @@ from xdsl.dialects.builtin import (
     StringAttr,
     IntegerAttr,
     IntegerType,
+    DictionaryAttr,
 )
 from xdsl_smt.dialects.smt_dialect import (
     DeclareConstOp,
@@ -73,6 +75,53 @@ class SynthSemantics(OperationSemantics):
         from_value_op.attributes["cst_name"] = attributes["cst_name"]
         return ((res,), effect_state)
 
+@dataclass
+class SynthOpSemantics(OperationSemantics):
+    ctx : Context
+
+    def get_semantics(
+        self,
+        operands: Sequence[SSAValue],
+        results: Sequence[Attribute],
+        attributes: Mapping[str, Attribute | SSAValue],
+        effect_state: SSAValue | None,
+        rewriter: PatternRewriter,
+    ) -> tuple[Sequence[SSAValue], SSAValue | None]:
+        op_name = attributes["op_name"]
+        assert isinstance(op_name, StringAttr)
+        op = self.ctx.get_op(op_name.data)
+
+        def get_constant(name : str, type : Attribute | SSAValue) -> SSAValue:
+            # If this gets too complicated it should be 
+            # factored out into the Synth dialect
+            assert isinstance(type, Attribute)
+            smt_type = None
+            if isinstance(type, IntegerType):
+                smt_type = smt_bv.BitVectorType(type.width)
+
+            assert isinstance(smt_type, Attribute)
+
+            res = rewriter.insert(DeclareConstOp(smt_type)).res
+            conv = rewriter.insert(synth.ConversionOp(res, type)).results[0]
+            from_value = rewriter.insert(synth.FromValueOp(conv))
+            name_dict = attributes["cst_attr_names"]
+            assert isinstance(name_dict, DictionaryAttr)
+            from_value.attributes["cst_name"] = name_dict.data[name]
+            return res
+
+
+        new_attributes = { key: get_constant(key, type) 
+            for key, type in attributes.items()
+            if key not in ["op_name", "__operand_types", "cst_attr_names"]
+        }
+        return SMTLowerer.op_semantics[op].get_semantics(
+            operands, 
+            results, 
+            new_attributes, 
+            effect_state, 
+            rewriter
+        )
+
 
 def z3_value_to_attribute(val: z3.ExprRef) -> Attribute:
     if isinstance(val, z3.DatatypeRef):
@@ -93,17 +142,14 @@ def z3_value_to_attribute(val: z3.ExprRef) -> Attribute:
     )
 
 
-def move_synth_constants_at_toplevel(
+def move_declare_constants_at_toplevel(
     module: ModuleOp, insert_point: InsertPoint
 ) -> None:
-    """Move synth.constant operations to the beginning of the module."""
     builder = Builder(insert_point)
-
     for op in module.walk():
-        if isinstance(op, synth.ConstantOp):
+        if isinstance(op, DeclareConstOp):
             op.detach()
             builder.insert(op)
-
 
 def optimize_module(ctx: Context, module: ModuleOp, with_pairs: bool = True) -> None:
     CanonicalizePass().apply(ctx, module)
@@ -134,6 +180,20 @@ def assign_names_to_synth_constants(module: ModuleOp) -> dict[str, synth.Constan
             counter += 1
     return name_to_value
 
+def assign_names_to_synth_attributes(module: ModuleOp) -> Sequence[tuple[synth.OperationOp, dict[str, StringAttr]]]:
+    seq: Sequence[tuple[synth.OperationOp, dict[str, StringAttr]]] = []
+    counter = 0
+    for op in module.walk():
+        attribute_cst_names : Mapping[str, StringAttr] = {}
+        if isinstance(op, synth.OperationOp):
+            for name, _ in op.attributes.items():
+                if name in ["op_name", "__operand_types"]:
+                    continue
+                attribute_cst_names[name] = StringAttr(f"__synth_cst_attr_{counter}__")
+                counter += 1
+            op.attributes["cst_attr_names"] = DictionaryAttr(attribute_cst_names)
+            seq.append((op, attribute_cst_names))
+    return seq
 
 def assign_name_hints_to_declare_const(module: ModuleOp) -> dict[str, SSAValue]:
     """
@@ -174,6 +234,10 @@ def compute_value(
             return IntegerAttr.from_int_and_width(
                 int_value.value.data, int_value.type.width.data
             )
+        if isinstance(value.owner.input.type, smt_bv.BitVectorType
+            ) and isinstance(value.type, IntegerType):
+            return IntegerAttr(inner_value.value.data, value.type)
+
         raise ValueError(
             f"Unsupported conversion from type {value.owner.input.type} to {value.type}"
         )
@@ -203,6 +267,7 @@ def synthesize_constants(
     rhs_old = rhs
     # Give a name to each synth.constant so we can track them during the pipeline.
     name_to_synth_const = assign_names_to_synth_constants(rhs_old)
+    synth_op_to_attr_names = assign_names_to_synth_attributes(rhs_old)
 
     rhs = rhs_old.clone()
 
@@ -216,12 +281,14 @@ def synthesize_constants(
     rhs_func_type = func_rhs.function_type
 
     # Move synth.constant outside of the rhs function body
-    move_synth_constants_at_toplevel(rhs, InsertPoint.at_start(rhs.body.block))
+    # move_synth_constants_at_toplevel(rhs, InsertPoint.at_start(rhs.body.block))
 
     SMTLowerer.op_semantics[synth.ConstantOp] = SynthSemantics()
+    SMTLowerer.op_semantics[synth.OperationOp] = SynthOpSemantics(ctx)
     # Convert both module to SMTLib
     LowerToSMTPass().apply(ctx, lhs)
     LowerToSMTPass().apply(ctx, rhs)
+    move_declare_constants_at_toplevel(rhs, InsertPoint.at_start(rhs.body.block))
 
     func = get_op_from_module(lhs, DefineFunOp)
     func_rhs = get_op_from_module(rhs, DefineFunOp)
@@ -262,12 +329,13 @@ def synthesize_constants(
     if optimize:
         optimize_module(ctx, new_module)
 
-    move_synth_constants_at_toplevel(
+    move_declare_constants_at_toplevel(
         new_module, InsertPoint.at_start(new_module.body.blocks[0])
     )
 
     if optimize:
         optimize_module(ctx, new_module)
+
 
     FunctionCallInline(True, {}).apply(ctx, new_module)
     for op in new_module.body.ops:
@@ -312,7 +380,7 @@ def synthesize_constants(
         ssavalue_to_attr[name_to_ssavalue[name]] = attr
 
     name_to_from_value: dict[str, synth.FromValueOp] = {}
-    for op in new_module.ops:
+    for op in new_module.walk():
         if isinstance(op, synth.FromValueOp):
             assert "cst_name" in op.attributes
             assert isinstance(op.attributes["cst_name"], StringAttr)
@@ -323,6 +391,24 @@ def synthesize_constants(
         input_value = name_to_from_value[name].input
         value = compute_value(new_module, input_value, ssavalue_to_attr)
         synth_const_to_values[synth_const] = value
+
+    rewriter = Rewriter()
+    for op, names in synth_op_to_attr_names:
+        assert isinstance(op.properties["op_name"], StringAttr)
+        op_class = ctx.get_op(op.properties["op_name"].data)
+        attributes : dict[str, Attribute] = {}
+        for attr_name, cst_name in names.items():
+            input_value = name_to_from_value[cst_name.data].input
+            value = compute_value(new_module, input_value, ssavalue_to_attr)
+            attributes[attr_name] = value
+        new_op = op_class.create(
+            operands=op.operands, 
+            result_types=op.result_types, 
+            attributes=attributes
+        )
+        rewriter.replace_op(op, new_op)
+
+        
 
     for synth_const, value in synth_const_to_values.items():
         replace_synth_constant_with_op(synth_const, value)
