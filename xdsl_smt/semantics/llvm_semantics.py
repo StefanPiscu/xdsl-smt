@@ -14,8 +14,15 @@ from xdsl_smt.semantics.builtin_semantics import IntegerAttrSemantics
 from xdsl_smt.dialects import smt_dialect as smt
 from xdsl_smt.dialects import smt_bitvector_dialect as smt_bv
 from xdsl_smt.dialects import smt_utils_dialect as smt_utils
-import xdsl.dialects.llvm as llvm
-
+from xdsl_smt.dialects import llvm_dialect as llvm
+from xdsl_smt.semantics.arith_semantics import (
+    RemuiSemantics,
+    RemsiSemantics,
+    TruncISemantics,
+    ExtSISemantics,
+    ExtUISemantics,
+    SelectSemantics as ArithSelectSemantics,
+)
 
 @dataclass
 class OverflowAttrSemanticsAdaptor:
@@ -451,7 +458,6 @@ class OrSemantics(SimplePurePoisonSemantics):
         width = lhs.type.width.data
 
         disjoint_attr = attributes.get("isDisjoint")
-        print(attributes)
         # test case returns None :/
         if disjoint_attr is None:
             disjoint_attr = rewriter.insert(smt.ConstantBoolOp(False)).result
@@ -727,7 +733,6 @@ class ICmpSemantics(SimplePurePoisonSemantics):
         rewriter.insert_op_before_matched_op(to_int)
         return ((to_int.res, None),)
 
-
 llvm_semantics: dict[type[Operation], OperationSemantics] = {
     llvm.AddOp: AddSemantics(),
     llvm.SubOp: SubSemantics(),  # TODO add SsubOverflowOp and UsubOverflowOp
@@ -740,6 +745,13 @@ llvm_semantics: dict[type[Operation], OperationSemantics] = {
     llvm.ShlOp: ShlSemantics(),
     llvm.LShrOp: LshrSemantics(),
     llvm.AShrOp: AshrSemantics(),
+    llvm.ICmpOp: ICmpSemantics(),
+    llvm.URemOp: RemuiSemantics(),
+    llvm.SRemOp: RemsiSemantics(),
+    llvm.TruncOp: TruncISemantics(),
+    llvm.SExtOp: ExtSISemantics(),
+    llvm.ZExtOp: ExtUISemantics(),
+    llvm.SelectOp: ArithSelectSemantics(),
 }
 llvm_attribute_semantics: dict[type[Attribute], AttributeSemantics] = {
     llvm.OverflowAttr: OverflowAttrSemantics(),

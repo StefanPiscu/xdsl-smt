@@ -43,6 +43,11 @@ from xdsl.dialects.llvm import (
     CallingConventionAttr as CallingConventionAttr,
     FastMathAttr as FastMathAttr,
     ICmpOp as ICmpOp,
+    TruncOp as TruncOp,
+    SExtOp as SExtOp,
+    ZExtOp as ZExtOp,
+    OverflowAttr as OverflowAttr,
+    OverflowFlag as OverflowFlag,
 )
 
 from xdsl.dialects import llvm

@@ -85,6 +85,12 @@ def register_all_arguments(arg_parser: argparse.ArgumentParser):
         help="Use synthetic operations instead of synth.const",
         action="store_true",
     )
+    arg_parser.add_argument(
+        "--count-programs",
+        dest="count_programs",
+        help="Count the number of programs evaluated, print it at the end",
+        action="store_true",
+    )
 
 
 def main() -> None:
@@ -94,7 +100,6 @@ def main() -> None:
 
     ctx = Context()
     ctx.allow_unregistered = True
-
     load_vanilla_semantics()
 
     # Register all dialects
@@ -123,6 +128,7 @@ def main() -> None:
         stdout=sp.PIPE,
     )
 
+    program_count = 0
     try:
         while True:
             # Read one program from stdin
@@ -135,6 +141,8 @@ def main() -> None:
             result_program = synthesize_constants(
                 input_program, rhs_program, ctx, args.opt, args.timeout
             )
+            if args.count_programs:
+                program_count += 1
 
             if result_program is None:
                 if args.verbose:
@@ -155,6 +163,9 @@ def main() -> None:
                 continue
 
             print(result_program.ops.first)
+            if args.count_programs:
+                print(program_count)
+
             exit(0)
     except BrokenPipeError as e:
         # The enumerator has terminated
@@ -162,6 +173,8 @@ def main() -> None:
     except Exception as e:
         print(f"Error while enumerating programs: {e}", file=sys.stderr)
     print("No program found")
+    if args.count_programs:
+        print(program_count)
     exit(1)
 
 

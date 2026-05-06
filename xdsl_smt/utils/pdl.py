@@ -63,14 +63,15 @@ def func_to_pdl(
 
     [*operations, ret] = list(func.body.ops)
     for op in operations:
+        attributes = {**op.properties, **op.attributes}
         pattern = builder.insert(
             OperationOp(
                 op.name,
-                [StringAttr(s) for s in op.properties.keys()],
+                [StringAttr(s) for s in attributes.keys()],
                 [get_value(operand) for operand in op.operands],
                 # Iteration order on dict is consistent betwen `.keys()` and
                 # `.values()`.
-                [get_attribute(prop) for prop in op.properties.values()],
+                [get_attribute(prop) for prop in attributes.values()],
                 [get_type(ty) for ty in op.result_types],
             )
         )
