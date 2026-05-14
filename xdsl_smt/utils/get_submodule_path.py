@@ -10,3 +10,6 @@ def get_mlir_fuzz_path() -> str:
 def get_mlir_fuzz_executable_path(executable_name: str) -> str:
     """Get the path to an executable in the mlir-fuzz submodule."""
     return os.path.join(get_mlir_fuzz_path(), "build", "bin", executable_name)
+
+def get_llvm_executable_path(executable_name: str) -> str:
+    return os.path.join(get_mlir_fuzz_path(), 'llvm-project', "build", "bin", executable_name)

@@ -340,7 +340,7 @@ class ShliSemantics(SimplePurePoisonSemantics):
 
         # If the shift amount is greater than the width of the value, poison
         width_op = smt_bv.ConstantOp(width, width)
-        shift_amount_too_big = smt_bv.UgtOp(operands[1], width_op.res)
+        shift_amount_too_big = smt_bv.UgeOp(operands[1], width_op.res)
 
         rewriter.insert_op_before_matched_op([width_op, shift_amount_too_big])
         return ((value_op.res, shift_amount_too_big.res),)
@@ -499,7 +499,7 @@ class ShrsiSemantics(SimplePurePoisonSemantics):
 
         # Check for shift amount greater than width
         width_op = smt_bv.ConstantOp(width, width)
-        shift_amount_too_big = smt_bv.UgtOp(operands[1], width_op.res)
+        shift_amount_too_big = smt_bv.UgeOp(operands[1], width_op.res)
 
         # Operation result
         value_op = smt_bv.AShrOp(operands[0], operands[1])
@@ -527,7 +527,7 @@ class ShruiSemantics(SimplePurePoisonSemantics):
 
         # Check for shift amount greater than width
         width_op = smt_bv.ConstantOp(width, width)
-        shift_amount_too_big = smt_bv.UgtOp(operands[1], width_op.res)
+        shift_amount_too_big = smt_bv.UgeOp(operands[1], width_op.res)
 
         # Operation result
         value_op = smt_bv.LShrOp(operands[0], operands[1])

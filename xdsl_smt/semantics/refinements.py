@@ -115,6 +115,7 @@ class BoolToIntPoisonRefinementSemantics(RefinementSemantics):
 @dataclass
 class IntegerTypeToRegisterRefinementSemantics(RefinementSemantics):
     width : int
+    zero_extend: bool
 
     def get_semantics(
         self,
@@ -131,9 +132,16 @@ class IntegerTypeToRegisterRefinementSemantics(RefinementSemantics):
         before_val = builder.insert(FirstOp(val_before)).res
         after_val = val_after
 
-        #TODO: revisit refinements later, there may be better ones
+        #Trunc refinement
         if self.width < WORD_SIZE:
-            after_val = builder.insert(smt_bv.ExtractOp(val_after, self.width-1, 0)).res
+           after_val = builder.insert(smt_bv.ExtractOp(val_after, self.width-1, 0)).res
+
+        #Sign extension refinement
+        #if self.width < WORD_SIZE:
+            #if self.zero_extend:
+                #before_val = builder.insert(smt_bv.ZeroExtendOp(before_val, BitVectorType(WORD_SIZE))).res
+            #else:
+                #before_val = builder.insert(smt_bv.SignExtendOp(before_val, BitVectorType(WORD_SIZE))).res
 
         not_before_poison = builder.insert(smt.NotOp(before_poison)).result
         eq_vals = builder.insert(EqOp(before_val, after_val)).res
@@ -209,9 +217,9 @@ def find_refinement_semantics(
         return BoolToIntPoisonRefinementSemantics()
     if isinstance(type_before, IntegerType) and isinstance(type_after, IntRegisterType):
         if(type_before == i1 or type_before.signedness.data == Signedness.UNSIGNED):
-            return IntegerTypeToRegisterRefinementSemantics(type_before.width.data)
+            return IntegerTypeToRegisterRefinementSemantics(type_before.width.data, True)
         else:
-            return IntegerTypeToRegisterRefinementSemantics(type_before.width.data)
+            return IntegerTypeToRegisterRefinementSemantics(type_before.width.data, False)
     raise Exception(f"No refinement semantics for types {type_before}, {type_after}")
 
 

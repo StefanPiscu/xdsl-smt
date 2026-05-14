@@ -51,7 +51,7 @@ def worker_synthesize(op: ModuleOp, args: argparse.Namespace, size: int) -> dict
 
     try:
         res = sp.run(
-            cmd, capture_output=True, text=True,
+            cmd, capture_output=True, text=True, timeout=args.max_timeout
         )
         if res.returncode == 0:
             if args.count_programs:
@@ -87,6 +87,7 @@ def main():
     parser = argparse.ArgumentParser()
     register_all_arguments(parser)
     parser.add_argument("--threads", type=int, default=4, help="Number of threads")
+    parser.add_argument("--max-timeout", type=float, default=None, help="Maximum timeout (s) for task")
     parser.add_argument(
         "--count-programs",
         dest="count_programs",
