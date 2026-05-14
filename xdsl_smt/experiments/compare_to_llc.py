@@ -116,22 +116,22 @@ def process_evaluations(data_file: str, pdl_file: str) -> Generator[Dict[str, An
       xdsl_count = evaluate_path_b_pdl(combined_code_str)
 
       yield {
-          "id": idx,
-          "input_program": input_code_str,
-          "parsed_asm": clean_asm,
-          "llvm_instruction_count": llvm_count,
-          "xdsl_riscv_ops_count": xdsl_count
+        "id": idx,
+        "input_program": input_code_str,
+        "parsed_asm": clean_asm,
+        "llvm_instruction_count": llvm_count,
+        "xdsl_riscv_ops_count": xdsl_count
       }
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('data_file', help="JSON lines file containing synthesis lowerings")
-    parser.add_argument('pdl_file', help="MLIR file containing all generated PDL patterns")
-    args = parser.parse_args()
+  parser = argparse.ArgumentParser()
+  parser.add_argument('data_file', help="JSON lines file containing synthesis lowerings")
+  parser.add_argument('pdl_file', help="MLIR file containing all generated PDL patterns")
+  args = parser.parse_args()
 
-    for res in process_evaluations(args.data_file, args.pdl_file):
-        print(json.dumps(res))
-        sys.stdout.flush()
+  for res in process_evaluations(args.data_file, args.pdl_file):
+    print(json.dumps(res))
+    sys.stdout.flush()
 
 if __name__ == "__main__":
     main()
